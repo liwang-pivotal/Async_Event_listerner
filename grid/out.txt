@@ -1,0 +1,24 @@
+
+(1) Executing - connect
+
+Connecting to Locator at [host=localhost, port=10334] ..
+Successfully connected to: [host=pivotal-wifi-2-135.ny.pivotallabs.com, port=1099]
+
+
+(2) Executing - query --query="select * from /UnitTelemetry"
+
+
+Result     : true
+startCount : 0
+endCount   : 20
+Rows       : 4
+
+       vin        | latitude  | longitude  |     capture_datetime     | heading | speed | odometer
+----------------- | --------- | ---------- | ------------------------ | ------- | ----- | --------
+1FVACWDT39HAJ3771 | 35.017354 | -90.832177 | 2015-11-15T17:25:47:119Z | SW      | 64    | 414964
+1FVACWDT39HAJ3771 | 35.017354 | -90.832177 | 2015-11-15T18:15:47:126Z | SW      | 64    | 414964
+1FVACWDT39HAJ3771 | 35.017354 | -90.832177 | 2015-11-15T16:20:47:39Z  | SW      | 64    | 414964
+1FVACWDT39HAJ3771 | 35.017354 | -90.832177 | 2015-11-15T18:44:47:343Z | SW      | 64    | 414964
+
+NEXT_STEP_NAME : END
+
