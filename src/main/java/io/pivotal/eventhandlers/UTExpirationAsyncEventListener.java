@@ -1,7 +1,6 @@
 package io.pivotal.eventhandlers;
 
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -11,11 +10,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
+import com.gemstone.gemfire.LogWriter;
 import com.gemstone.gemfire.cache.Cache;
 import com.gemstone.gemfire.cache.CacheFactory;
+import com.gemstone.gemfire.cache.CacheTransactionManager;
 import com.gemstone.gemfire.cache.Declarable;
 import com.gemstone.gemfire.cache.Operation;
 import com.gemstone.gemfire.cache.Region;
@@ -24,8 +23,8 @@ import com.gemstone.gemfire.cache.asyncqueue.AsyncEventListener;
 import com.gemstone.gemfire.pdx.PdxInstance;
 
 public class UTExpirationAsyncEventListener<K, V> implements AsyncEventListener, Declarable {
-	
-	private final Object lock = new Object();
+
+	private LogWriter logger = null;
 
 	public void init(Properties props) {}
 
@@ -35,69 +34,61 @@ public class UTExpirationAsyncEventListener<K, V> implements AsyncEventListener,
 	public boolean processEvents(@SuppressWarnings("rawtypes") List<AsyncEvent> entries) {
 
 		Cache cache = CacheFactory.getAnyInstance();
-
-		Region<String, Map<Date, Set<K>>> unitTelemetryHelperRegion = cache.getRegion("/UnitTelemetryHelper");
 		
-		try {
-			for (@SuppressWarnings("rawtypes") AsyncEvent e : entries) {
-				if (e.getOperation().equals(Operation.CREATE)) {
-					put(e, unitTelemetryHelperRegion);
+		logger = cache.getLogger();
+		
+		CacheTransactionManager txManager = cache.getCacheTransactionManager();
+		
+		txManager.begin();
+		
+		
+		for (@SuppressWarnings("rawtypes") AsyncEvent e : entries) {
+			if (e.getOperation().equals(Operation.CREATE)) {
+				try {
+					put(e, cache, logger);
+				} catch (Exception exception) {
+					exception.printStackTrace();
 				}
 			}
-		} catch (ParseException exception) {
-			exception.printStackTrace();
 		}
-
+		
+		
+		txManager.commit();
+		
 		return true;
 	}
 
-	private void put(AsyncEvent<K,V> e, Region<String, Map<Date, Set<K>>> unitTelemetryHelperRegion) throws ParseException {
+	private synchronized void put(AsyncEvent<K,V> e, Cache cache, LogWriter logger) throws Exception {
+		
+		Region<String, Map<Date, Set<K>>> unitTelemetryHelperRegion = cache.getRegion("/UnitTelemetryHelper");
 		
 		// Extract fields from JSON
 		K key = e.getKey();
-		String new_vin = (String) ((PdxInstance) e.getDeserializedValue())
-				.getField("vin");
-		String new_datetime = (String) ((PdxInstance) e.getDeserializedValue())
-				.getField("capture_datetime");
-		String new_dateString = new_datetime.split("T")[0];
+		String newVin = (String) ((PdxInstance) e.getDeserializedValue()).getField("vin");
+		String newDateTime = (String) ((PdxInstance) e.getDeserializedValue()).getField("capture_datetime");
 
-		// Parse Date String to Date object
+		// Parse date string to Date object
+		String newDateString = newDateTime.split("T")[0];
 		DateFormat df = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
-		Date new_date = df.parse(new_dateString);
+		Date newDate = df.parse(newDateString);
 
-		Map<Date, Set<K>> dateMap;
-		
-		synchronized (this) {
+		// Check if helper region already has VIN. If yes, extract its dateMap, otherwise create new dateMap
+		Map<Date, Set<K>> dateMap = unitTelemetryHelperRegion.containsKey(newVin) 
+									? (Map<Date, Set<K>>) unitTelemetryHelperRegion.get(newVin) 
+									: new ConcurrentHashMap<Date, Set<K>>();
 
-			// Place the key in UnitTelemetryHelper
-			// case 1: if this VIN is already existed
-			if (unitTelemetryHelperRegion.containsKey(new_vin)) {
-				
-					dateMap = (Map<Date, Set<K>>) unitTelemetryHelperRegion.get(new_vin);
-	
-					Set<K> keys = dateMap.keySet().contains(new_date) ? dateMap.get(new_date) : Collections.newSetFromMap(new ConcurrentHashMap<K, Boolean>());
-	
-					keys.add(key);
-	
-					dateMap.put(new_date, keys);
-				
-			// case 2: if this VIN is new
-			} else {
-				// create new date map for this VIN
-				dateMap = new ConcurrentHashMap<Date, Set<K>>();
-	
-				// create new key list and insert key
-				Set<K> keys = Collections.newSetFromMap(new ConcurrentHashMap<K, Boolean>());
-				keys.add(key);
-	
-				// place new entry(date, list) to dateMap
-				dateMap.put(new_date, keys);
-			}
+		// Check if dateMap already has such date. If yes, extract its Set, otherwise create new Set
+		Set<K> keys = dateMap.keySet().contains(newDate) 
+					  ? dateMap.get(newDate)
+					  : Collections.newSetFromMap(new ConcurrentHashMap<K, Boolean>());
 
-			// PUT new record
-			unitTelemetryHelperRegion.put(new_vin, dateMap);
-		
-		}
+		// Add key to key set
+		keys.add(key);
+
+		// put new set to dateMap
+		dateMap.put(newDate, keys);
+
+		// put new dateMap to region
+		unitTelemetryHelperRegion.put(newVin, dateMap);
 	}
-
 }

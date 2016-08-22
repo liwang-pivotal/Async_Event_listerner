@@ -1,12 +1,21 @@
 package io.pivotal.app;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.gemstone.gemfire.cache.Region;
 import com.gemstone.gemfire.cache.client.ClientCache;
@@ -19,14 +28,15 @@ import com.gemstone.gemfire.pdx.PdxInstance;
 public class App {
 
 	public static <K, V> void main(String args[]) throws Exception {
-		//clearRegion();
-		//generateData(1000);
+		// clearRegion();
+		// generateData(10);
 		queryData();
-		
-		System.out.println("######################################");
-		
-		//purgeData();
-		//queryData();
+
+		// System.out.println("######################################");
+
+		// purgeData();
+		// queryData();
+
 	}
 
 	private static <K, V> void clearRegion() {
@@ -39,8 +49,9 @@ public class App {
 				.getRegion("UnitTelemetryHelper");
 		Region<Integer, PdxInstance> unitTelemetryRegion = cache
 				.getRegion("UnitTelemetry");
-		
-		unitTelemetryHelperRegion.removeAll(unitTelemetryHelperRegion.keySetOnServer());
+
+		unitTelemetryHelperRegion.removeAll(unitTelemetryHelperRegion
+				.keySetOnServer());
 		unitTelemetryRegion.removeAll(unitTelemetryRegion.keySetOnServer());
 	}
 
@@ -54,27 +65,27 @@ public class App {
 				.getRegion("UnitTelemetry");
 
 		Random random = new Random();
-		
+
 		System.out.println("Putting Data...");
 		long tStart = System.currentTimeMillis();
-		
-		for (int i=0; i<num; i++) {
+
+		for (int i = 0; i < num; i++) {
 			String time = "2015-11-1" + random.nextInt(10) + "T"
 					+ random.nextInt(24) + ":" + random.nextInt(60) + ":"
-					+ random.nextInt(60) + ":" + random.nextInt(1000)+"Z";
-			PdxInstance newItem = cache.createPdxInstanceFactory("io.pivotal.Json")
-					.writeString("vin", "1FVACWDT39HAJ3771")
+					+ random.nextInt(60) + ":" + random.nextInt(1000) + "Z";
+			PdxInstance newItem = cache
+					.createPdxInstanceFactory("io.pivotal.Json")
+					.writeString("vin", "1FVACWDT39HAJ377" + random.nextInt(1))
 					.writeString("capture_datetime", time).create();
 
-			
 			unitTelemetryRegion.put(newItem.hashCode(), newItem);
 		}
-		
-		
+
 		long tEnd = System.currentTimeMillis();
 		long tDelta = tEnd - tStart;
 		double elapsedSeconds = tDelta / 1000.0;
-		System.out.println("Finished Putting Data. Time elapsed: " + elapsedSeconds);
+		System.out.println("Finished Putting Data. Time elapsed: "
+				+ elapsedSeconds);
 	}
 
 	private static <K, V> void purgeData() {
@@ -146,10 +157,10 @@ public class App {
 
 			System.out.println("Total keys in UnitTelemetryHelper : " + sum);
 		}
-		
+
 		Query query2 = queryService
 				.newQuery("SELECT count(*) FROM /UnitTelemetry");
-		
+
 		Object result2 = query2.execute();
 
 		Collection<?> collection2 = ((SelectResults<?>) result2).asList();
@@ -157,8 +168,9 @@ public class App {
 		Iterator<?> iter2 = collection2.iterator();
 
 		while (iter2.hasNext()) {
-			System.out.println("Total records in UnitTelemetry: " + iter2.next());
+			System.out.println("Total records in UnitTelemetry: "
+					+ iter2.next());
 		}
-		
+
 	}
 }

@@ -24,5 +24,9 @@
     <region name="UnitTelemetryHelper">
         <region-attributes refid="PROXY" pool-name="clientPool" />
     </region>
+    
+    <region name="DummyRegion">
+        <region-attributes refid="PROXY" pool-name="clientPool" />
+    </region>
 
 </client-cache>
