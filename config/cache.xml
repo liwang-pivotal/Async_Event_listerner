@@ -4,13 +4,13 @@
     "http://www.gemstone.com/dtd/cache8_0.dtd">
 
 <cache>
-    <async-event-queue id="penskeQueue" batch-size="10" batch-time-interval="20000" parallel="false" dispatcher-threads="1">
+    <async-event-queue id="penskeQueue" batch-size="100" batch-time-interval="2000" parallel="true" persistent="true" dispatcher-threads="1" >
         <async-event-listener>
             <class-name>io.pivotal.eventhandlers.UTExpirationAsyncEventListener</class-name>
         </async-event-listener>
     </async-event-queue>
     
-    <pdx read-serialized="true">
+    <pdx read-serialized="true" persistent="true">
         <pdx-serializer>
             <class-name>com.gemstone.gemfire.pdx.ReflectionBasedAutoSerializer</class-name>
             <parameter name="classes">
@@ -20,20 +20,24 @@
     </pdx>
     
     <region name="UnitTelemetry">
-        <region-attributes data-policy="partition" statistics-enabled="true" async-event-queue-ids="penskeQueue">
-	    <partition-attributes redundant-copies="1" />
+        <region-attributes data-policy="persistent-partition" statistics-enabled="true" async-event-queue-ids="penskeQueue">
+	    	<partition-attributes redundant-copies="1" />
         </region-attributes>
     </region>
     
     <region name="UTPurgeHelper">
-        <region-attributes data-policy="partition">
+        <region-attributes data-policy="persistent-partition">
+			<partition-attributes redundant-copies="1" />
         </region-attributes>
     </region>
-	
+
 	<function-service>
-	  <function>
-	    <class-name>io.pivotal.functions.UTExpirationFunction</class-name>
-	  </function>
+		<function>
+			<class-name>io.pivotal.functions.UTExpirationFunction</class-name>
+		</function>
+		<function>
+			<class-name>io.pivotal.functions.UTGetVINsFunction</class-name>
+		</function>
 	</function-service>
     
 </cache>
